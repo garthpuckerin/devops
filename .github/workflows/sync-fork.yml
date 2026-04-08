@@ -24,7 +24,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      workflows: write
 
     steps:
       - name: Checkout fork
@@ -32,7 +31,8 @@ jobs:
         with:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # PAT with workflow scope required to push upstream workflow file changes
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Configure git
         run: |
@@ -65,7 +65,9 @@ jobs:
 
       - name: Push rebased branch
         if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'true'
-        run: git push origin ${{ inputs.target_branch }} --force-with-lease
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin ${{ inputs.target_branch }} --force-with-lease
 
       - name: Open PR on conflict
         if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'false'
