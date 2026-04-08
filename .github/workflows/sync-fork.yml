@@ -1,0 +1,84 @@
+name: Sync Fork from Upstream
+
+on:
+  workflow_call:
+    inputs:
+      upstream:
+        description: "Upstream repo in owner/repo format"
+        required: true
+        type: string
+      upstream_branch:
+        description: "Upstream branch to sync from"
+        required: false
+        type: string
+        default: "main"
+      target_branch:
+        description: "Branch in this fork to sync into"
+        required: false
+        type: string
+        default: "main"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/${{ inputs.upstream }}.git
+          git fetch upstream ${{ inputs.upstream_branch }}
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          BEHIND=$(git rev-list HEAD..upstream/${{ inputs.upstream_branch }} --count)
+          AHEAD=$(git rev-list upstream/${{ inputs.upstream_branch }}..HEAD --count)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+          echo "Upstream is $BEHIND commits ahead, fork is $AHEAD commits ahead"
+
+      - name: Nothing to sync
+        if: steps.check.outputs.behind == '0'
+        run: echo "Fork is up to date with upstream. Nothing to do."
+
+      - name: Try clean rebase
+        if: steps.check.outputs.behind != '0'
+        id: rebase
+        run: |
+          git rebase upstream/${{ inputs.upstream_branch }} && echo "success=true" >> "$GITHUB_OUTPUT" || echo "success=false" >> "$GITHUB_OUTPUT"
+
+      - name: Push rebased branch
+        if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'true'
+        run: git push origin ${{ inputs.target_branch }} --force-with-lease
+
+      - name: Open PR on conflict
+        if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'false'
+        run: |
+          git rebase --abort || true
+          SYNC_BRANCH="sync/upstream-$(date +%Y%m%d)"
+          git checkout -b "$SYNC_BRANCH"
+          git merge --no-edit upstream/${{ inputs.upstream_branch }} || true
+          git push origin "$SYNC_BRANCH"
+          gh pr create \
+            --title "chore: sync from ${{ inputs.upstream }} (conflicts need resolution)" \
+            --body "Upstream [${{ inputs.upstream }}](https://github.com/${{ inputs.upstream }}) has ${{ steps.check.outputs.behind }} new commits. Automatic rebase failed due to conflicts — manual resolution required before merging." \
+            --base ${{ inputs.target_branch }} \
+            --head "$SYNC_BRANCH" \
+            --label "upstream-sync"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,27 @@
+name: Sync Forks (Weekly)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 6am UTC
+  workflow_dispatch:       # manual trigger anytime
+
+jobs:
+  sync-cognee:
+    uses: garthpuckerin/devops/.github/workflows/sync-fork.yml@main
+    with:
+      upstream: topoteretes/cognee
+      upstream_branch: main
+      target_branch: main
+    permissions:
+      contents: write
+      pull-requests: write
+
+  sync-mimir:
+    uses: garthpuckerin/devops/.github/workflows/sync-fork.yml@main
+    with:
+      upstream: orneryd/Mimir
+      upstream_branch: main
+      target_branch: main
+    permissions:
+      contents: write
+      pull-requests: write
