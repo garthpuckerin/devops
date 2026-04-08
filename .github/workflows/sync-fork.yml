@@ -41,7 +41,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Use PAT for all git operations so workflow file pushes are allowed
+          # Unset the credential helper injected by actions/checkout so our PAT takes precedence
+          git config --unset-all http.https://github.com/.extraheader || true
           PAT="${{ secrets.SYNC_PAT }}"
           if [ -n "$PAT" ]; then
             git remote set-url origin https://x-access-token:${PAT}@github.com/${{ github.repository }}.git
