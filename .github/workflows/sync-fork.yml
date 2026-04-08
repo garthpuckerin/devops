@@ -82,8 +82,18 @@ jobs:
           git rebase --abort || true
           SYNC_BRANCH="sync/upstream-$(date +%Y%m%d)"
           git checkout -b "$SYNC_BRANCH"
+          # Merge and stage everything including conflicts so the branch has commits
           git merge --no-edit upstream/${{ inputs.upstream_branch }} || true
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: merge upstream with conflicts — manual resolution required"
           git push origin "$SYNC_BRANCH"
+          # Ensure label exists
+          gh api repos/${{ github.repository }}/labels \
+            --method POST \
+            --field name="upstream-sync" \
+            --field color="0075ca" \
+            --field description="Upstream sync conflict requiring manual resolution" \
+            2>/dev/null || true
           gh pr create \
             --title "chore: sync from ${{ inputs.upstream }} (conflicts need resolution)" \
             --body "Upstream [${{ inputs.upstream }}](https://github.com/${{ inputs.upstream }}) has ${{ steps.check.outputs.behind }} new commits. Automatic rebase failed due to conflicts — manual resolution required before merging." \
