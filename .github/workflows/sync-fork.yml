@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: "main"
+    secrets:
+      SYNC_PAT:
+        description: "PAT with contents + workflows write scope for pushing upstream workflow file changes"
+        required: false
 
 jobs:
   sync:
@@ -31,13 +35,17 @@ jobs:
         with:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
-          # PAT with workflow scope required to push upstream workflow file changes
           token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Use PAT for all git operations so workflow file pushes are allowed
+          PAT="${{ secrets.SYNC_PAT }}"
+          if [ -n "$PAT" ]; then
+            git remote set-url origin https://x-access-token:${PAT}@github.com/${{ github.repository }}.git
+          fi
 
       - name: Add upstream and fetch
         run: |
@@ -65,9 +73,7 @@ jobs:
 
       - name: Push rebased branch
         if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'true'
-        run: |
-          git remote set-url origin https://x-access-token:${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin ${{ inputs.target_branch }} --force-with-lease
+        run: git push origin ${{ inputs.target_branch }} --force-with-lease
 
       - name: Open PR on conflict
         if: steps.check.outputs.behind != '0' && steps.rebase.outputs.success == 'false'
@@ -84,4 +90,4 @@ jobs:
             --head "$SYNC_BRANCH" \
             --label "upstream-sync"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
