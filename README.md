@@ -58,6 +58,41 @@ gh repo list garthpuckerin --limit 100 --json name -q '.[].name' \
   | xargs ./scripts/bootstrap-docker-workflow.sh
 ```
 
+## Fork Sync
+
+### `sync-fork.yml`
+
+Reusable workflow that syncs a fork from its upstream. Runs weekly (Monday 6am UTC). On clean rebase → pushes directly. On conflict → opens a PR for manual resolution.
+
+**Add to any fork:**
+
+```yaml
+# .github/workflows/sync-upstream.yml
+name: Sync from Upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    uses: garthpuckerin/devops/.github/workflows/sync-fork.yml@main
+    with:
+      upstream: originalowner/originalrepo
+    permissions:
+      contents: write
+      pull-requests: write
+```
+
+**Required secret:** `SYNC_PAT` — a GitHub PAT with `contents`, `pull-requests`, and `workflows` write permissions on the fork. Needed because upstream repos may include workflow file changes which `GITHUB_TOKEN` cannot push.
+
+```bash
+gh secret set SYNC_PAT --repos garthpuckerin/cognee,garthpuckerin/mimir --body "<PAT>"
+```
+
+**When to stop syncing:** Remove the `sync-upstream.yml` workflow from the fork. No other changes needed.
+
 ## Watchtower Integration
 
 Watchtower on the NAS polls `ghcr.io` and auto-updates containers when new images are pushed. No SSH required.
