@@ -22,6 +22,11 @@ on:
         required: false
         type: string
         default: "linux/amd64"
+      tag:
+        description: "Image tag (default: latest). Pass e.g. a release version."
+        required: false
+        type: string
+        default: "latest"
 
 jobs:
   build-and-push:
@@ -36,12 +41,12 @@ jobs:
 
       - name: Set image name
         id: image
+        env:
+          IMAGE_NAME: ${{ inputs.image_name }}
+          IMAGE_TAG: ${{ inputs.tag }}
         run: |
-          NAME="${{ inputs.image_name }}"
-          if [ -z "$NAME" ]; then
-            NAME="${{ github.repository }}"
-          fi
-          echo "name=ghcr.io/${NAME,,}:latest" >> "$GITHUB_OUTPUT"
+          NAME="${IMAGE_NAME:-${{ github.repository }}}"
+          echo "name=ghcr.io/${NAME,,}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
