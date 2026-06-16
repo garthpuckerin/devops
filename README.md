@@ -110,10 +110,12 @@ uniform policy, not a per-project invention:
 
 ### Rules
 
-- **One owner per container.** Scope the dev/beta instance with the
-  `com.centurylinklabs.watchtower.enable=true` label and keep those containers
-  out of the host nightly sweep — never let two Watchtowers manage the same
-  container.
+- **One owner per container.** Isolate the dev/beta instance with
+  `WATCHTOWER_SCOPE` + a matching `com.centurylinklabs.watchtower.scope` label on
+  its container; run the host sweep with `WATCHTOWER_SCOPE=none` (or its own
+  scope) so it ignores scoped containers. Never let two Watchtowers manage the
+  same container. (An `enable=false` label won't work — it would also disable the
+  dev/beta instance; scopes are the mechanism for coexisting Watchtowers.)
 - **Don't expose the API.** The HTTP-API update endpoint is bound to
   `127.0.0.1` and token-gated; it must never be reachable from the internet.
 - **Image contract.** Auto-update requires the service to publish
@@ -123,11 +125,11 @@ uniform policy, not a per-project invention:
 ### Onboard a project to the dev/beta cadence
 
 1. Ensure the repo publishes `:latest` (wire `docker-publish.yml` — see above).
-2. Add `labels: ["com.centurylinklabs.watchtower.enable=true"]` to the app
-   container in the project's compose.
-3. Drop in `deploy/watchtower/docker-compose.dev-watchtower.yml`, set
-   `WATCHTOWER_TOKEN` in the project `.env`, and exclude the container from the
-   host sweep.
+2. Pick a scope (e.g. the project name). Label the app container in the
+   project's compose: `labels: ["com.centurylinklabs.watchtower.scope=<scope>"]`.
+3. Drop in `deploy/watchtower/docker-compose.dev-watchtower.yml`; set
+   `WATCHTOWER_TOKEN` and `WATCHTOWER_SCOPE=<scope>` in the project `.env`.
+   Ensure the host sweep runs `WATCHTOWER_SCOPE=none` so it ignores it.
 4. Immediate pull after a push: `WATCHTOWER_TOKEN=… scripts/pull-now.sh` on the NAS
    (or enable `WATCHTOWER_POLL_INTERVAL` for hands-off).
 

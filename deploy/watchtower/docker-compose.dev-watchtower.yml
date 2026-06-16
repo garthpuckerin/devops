@@ -3,43 +3,49 @@
 # Cadence policy (Constitution §23.4 — The Deploy Cadence):
 #   - PRODUCTION rides the host-level nightly Watchtower sweep (e.g. 02:00) as
 #     the baseline release cadence. Prod compose files do NOT bundle a watchtower.
-#   - DEV/BETA projects add THIS scoped instance so a freshly published `:latest`
-#     can land fast — either polled (near-immediate, hands-off) or pulled on
-#     demand right after a push.
+#   - DEV/BETA projects add THIS instance so a freshly published `:latest` lands
+#     quickly — polled (near-immediate, hands-off) or pulled on demand right
+#     after a push.
 #
-# Scoping (avoid two watchtowers fighting over one container):
-#   - This instance only updates containers labelled
-#       com.centurylinklabs.watchtower.enable=true
-#     Add that label to the project's app container ONLY; everything else on the
-#     NAS is ignored. Keep dev/beta containers OUT of the host nightly sweep (or
-#     keep the host sweep label-scoped to prod) so each container has ONE owner.
+# Coexisting with the host sweep — use SCOPES, not enable labels:
+#   - This instance sets WATCHTOWER_SCOPE and only manages containers carrying a
+#     matching `com.centurylinklabs.watchtower.scope` label (see below). Give the
+#     project's app container that label.
+#   - The host nightly sweep must run with WATCHTOWER_SCOPE=none (or its own
+#     scope) so it IGNORES scoped containers — otherwise two watchtowers manage
+#     one container. (An `enable=false` label can't be used to exclude from the
+#     host sweep without also disabling THIS instance — scopes are the mechanism.)
 #
 # Immediate pull after a push:
 #   - Hands-off: uncomment WATCHTOWER_POLL_INTERVAL (pulls within ~N seconds).
 #   - On demand: leave polling off and run ../../scripts/pull-now.sh on the NAS
-#     (hits the localhost HTTP API below) the moment CI finishes building :latest.
+#     the moment CI finishes building :latest.
 #
 # Security: the HTTP API is bound to 127.0.0.1 and requires a token. NEVER expose
 # it to the internet — there is no auth beyond the bearer token.
 #
-# Usage: merge into the project's compose, or run alongside it:
-#   WATCHTOWER_TOKEN=... docker compose -f docker-compose.dev-watchtower.yml up -d
+# Set in the project .env: WATCHTOWER_TOKEN, WATCHTOWER_SCOPE (e.g. the project
+# name). Label the app container in its own compose:
+#   labels: ["com.centurylinklabs.watchtower.scope=${WATCHTOWER_SCOPE}"]
 services:
   watchtower:
     image: containrrr/watchtower
     container_name: ${COMPOSE_PROJECT_NAME:-app}-watchtower
     restart: unless-stopped
     environment:
-      WATCHTOWER_LABEL_ENABLE: "true" # only manage labelled containers
+      WATCHTOWER_SCOPE: ${WATCHTOWER_SCOPE:?set WATCHTOWER_SCOPE (e.g. project name)}
       WATCHTOWER_CLEANUP: "true" # delete the superseded image after update
       WATCHTOWER_HTTP_API_UPDATE: "true" # enable POST /v1/update (immediate pull)
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_TOKEN:?set WATCHTOWER_TOKEN in .env}
       # Hands-off near-immediate dev/beta updates — pull within this many seconds
-      # of a new :latest. Comment out to rely solely on the on-demand API + the
-      # host nightly sweep.
+      # of a new :latest. Comment out to rely on the on-demand API + host sweep.
       # WATCHTOWER_POLL_INTERVAL: "120"
       # Or give this instance its own nightly window instead of the host sweep:
       # WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+    labels:
+      # So this watchtower is itself in-scope (lets it self-update / be managed
+      # consistently) and never picked up by the host sweep.
+      - "com.centurylinklabs.watchtower.scope=${WATCHTOWER_SCOPE}"
     ports:
       - "127.0.0.1:8080:8080" # API reachable only from the NAS host
     volumes:
