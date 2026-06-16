@@ -1,0 +1,46 @@
+# Reusable internal Watchtower for DEV/BETA projects on the NAS.
+#
+# Cadence policy (Constitution §23.4 — The Deploy Cadence):
+#   - PRODUCTION rides the host-level nightly Watchtower sweep (e.g. 02:00) as
+#     the baseline release cadence. Prod compose files do NOT bundle a watchtower.
+#   - DEV/BETA projects add THIS scoped instance so a freshly published `:latest`
+#     can land fast — either polled (near-immediate, hands-off) or pulled on
+#     demand right after a push.
+#
+# Scoping (avoid two watchtowers fighting over one container):
+#   - This instance only updates containers labelled
+#       com.centurylinklabs.watchtower.enable=true
+#     Add that label to the project's app container ONLY; everything else on the
+#     NAS is ignored. Keep dev/beta containers OUT of the host nightly sweep (or
+#     keep the host sweep label-scoped to prod) so each container has ONE owner.
+#
+# Immediate pull after a push:
+#   - Hands-off: uncomment WATCHTOWER_POLL_INTERVAL (pulls within ~N seconds).
+#   - On demand: leave polling off and run ../../scripts/pull-now.sh on the NAS
+#     (hits the localhost HTTP API below) the moment CI finishes building :latest.
+#
+# Security: the HTTP API is bound to 127.0.0.1 and requires a token. NEVER expose
+# it to the internet — there is no auth beyond the bearer token.
+#
+# Usage: merge into the project's compose, or run alongside it:
+#   WATCHTOWER_TOKEN=... docker compose -f docker-compose.dev-watchtower.yml up -d
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-watchtower
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true" # only manage labelled containers
+      WATCHTOWER_CLEANUP: "true" # delete the superseded image after update
+      WATCHTOWER_HTTP_API_UPDATE: "true" # enable POST /v1/update (immediate pull)
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_TOKEN:?set WATCHTOWER_TOKEN in .env}
+      # Hands-off near-immediate dev/beta updates — pull within this many seconds
+      # of a new :latest. Comment out to rely solely on the on-demand API + the
+      # host nightly sweep.
+      # WATCHTOWER_POLL_INTERVAL: "120"
+      # Or give this instance its own nightly window instead of the host sweep:
+      # WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+    ports:
+      - "127.0.0.1:8080:8080" # API reachable only from the NAS host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
