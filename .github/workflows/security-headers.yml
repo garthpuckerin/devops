@@ -1,0 +1,27 @@
+name: Verify Security Headers
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: "URL to check, matching the deployment access path users open"
+        required: true
+        type: string
+      profile:
+        description: "Header profile: production-public, staging-private-tls, or local-lan-tailscale"
+        required: true
+        type: string
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout devops verifier
+        uses: actions/checkout@v4
+        with:
+          repository: garthpuckerin/devops
+          ref: main
+
+      - name: Verify security headers
+        run: node scripts/verify-security-headers.js --url="${{ inputs.url }}" --profile="${{ inputs.profile }}"
