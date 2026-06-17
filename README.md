@@ -43,6 +43,45 @@ jobs:
 
 Images are published to `ghcr.io/garthpuckerin/<repo>:latest`.
 
+### `security-headers.yml`
+
+Verifies that a deployed UI emits the correct browser security headers for the
+declared access profile. This enforces Constitution §27: production can be
+HTTPS-only, but local/LAN/Tailscale demos must not force HTTP origins to HTTPS
+with HSTS or CSP `upgrade-insecure-requests`.
+
+**Add to any UI repo** after deploying or starting its demo environment:
+
+```yaml
+# .github/workflows/security-headers.yml
+name: Security Headers
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL to check
+        required: true
+      profile:
+        description: production-public, staging-private-tls, or local-lan-tailscale
+        required: true
+        default: local-lan-tailscale
+
+jobs:
+  verify:
+    uses: garthpuckerin/devops/.github/workflows/security-headers.yml@main
+    with:
+      url: ${{ inputs.url }}
+      profile: ${{ inputs.profile }}
+```
+
+Profiles:
+
+- `production-public`: URL must be HTTPS and must emit CSP + HSTS.
+- `staging-private-tls`: URL must be HTTPS and must emit CSP. HSTS is optional.
+- `local-lan-tailscale`: HTTP is allowed; HSTS and CSP
+  `upgrade-insecure-requests` are forbidden unless the checked URL is HTTPS.
+
 ## Scripts
 
 ### `scripts/bootstrap-docker-workflow.sh`
