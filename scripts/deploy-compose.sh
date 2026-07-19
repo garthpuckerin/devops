@@ -44,7 +44,9 @@ echo "Backing up ${NAS_HOST}:${REMOTE_FILE} -> ${BACKUP_FILE}"
 ssh "$NAS_HOST" "cp '$REMOTE_FILE' '$BACKUP_FILE'"
 
 echo "Uploading ${LOCAL_FILE}"
-scp "$LOCAL_FILE" "${NAS_HOST}:${REMOTE_FILE}"
+# -O forces the legacy SCP protocol — Synology sshd has no SFTP subsystem,
+# which modern scp uses by default ("subsystem request failed" otherwise).
+scp -O "$LOCAL_FILE" "${NAS_HOST}:${REMOTE_FILE}"
 
 echo "Validating"
 if ! ssh "$NAS_HOST" "cd '$NAS_DIR' && '$DOCKER_BIN' compose config --quiet"; then
