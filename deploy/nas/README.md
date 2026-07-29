@@ -28,6 +28,7 @@ corporate network.
 | `tailscale` | `/usr/local/bin/tailscale` |
 | finance-freedom compose project | **`/volume1/docker/projects/finance-freedom-compose/`** |
 | finance-freedom `.env` | same directory as the compose file |
+| finance-freedom database name | **`finance-freedom`** — hyphen, not underscore |
 
 `/volume1/docker/finance-freedom/` looks like the project directory and is not —
 it holds a stray `.env` only. Read the truth from the container rather than
@@ -36,6 +37,29 @@ guessing:
 ```bash
 docker inspect <container> --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}'
 ```
+
+### Querying the database
+
+```bash
+docker exec finance-freedom-db psql -U postgres -d finance-freedom -c '<sql>'
+```
+
+The database name is **hyphenated**. `finance_freedom` fails with
+`FATAL: database "finance_freedom" does not exist`, which reads like the
+database is missing rather than misnamed. `psql -U postgres -lqt` lists the
+truth.
+
+After an unclean shutdown, the check that matters is not row counts but
+whether a migration was caught mid-flight:
+
+```sql
+SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL;  -- must be 0
+```
+
+A power loss during `prisma migrate deploy` leaves a partially applied schema
+and a row with `finished_at IS NULL`. It is recoverable, but only by hand and
+only if you know to look. Postgres crash recovery itself is reliable — a
+2026-07-28 outage replayed 176 bytes of WAL with no corruption.
 
 ## Editing config on the NAS
 
