@@ -2,6 +2,14 @@
 
 Centralized DevOps for the BC/MPG ecosystem. Reusable GitHub Actions workflows and automation scripts used across 40+ repositories.
 
+## Verification substrate
+
+Cross-project requirements learned from Ogham's degraded-dependency and
+rollback-verification work are recorded in
+[`docs/verification-substrate-findings.md`](docs/verification-substrate-findings.md).
+The document separates reusable DevOps responsibilities from service-owned
+adapters and is a backlog/design input, not an implemented universal verifier.
+
 ## Reusable Workflows
 
 ### `docker-publish.yml`
