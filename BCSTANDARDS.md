@@ -12,7 +12,7 @@
 ## Code Comprehension (Comprehension Ladder Standard)
 
 - Graph repo_id: `github.com/garthpuckerin/devops`
-- Ladder-first: query the mimir2-graph MCP ladder (`map` / `find` / `explain` /
+- Ladder-first: query the code-graph MCP ladder (`map` / `find` / `explain` /
   `neighbors` / `read`) with the repo_id above BEFORE raw file reads or grep
   for structure/behavior/relationship questions. Raw reads remain correct for
   editing, ungraphed repos, non-code content, and exact-line verification.
