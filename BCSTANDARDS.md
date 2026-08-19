@@ -18,3 +18,19 @@
   editing, ungraphed repos, non-code content, and exact-line verification.
   Canonical text: `standards/Comprehension_Ladder_Standard.md` in
   blurred-concepts-engineering — it governs on any conflict.
+
+## Client Enforcement and Memory
+
+- The comprehension and memory habits are active client bindings, not passive
+  repository guidance. Each client must use the highest enforcement tier it
+  supports under the Comprehension Ladder Standard.
+- Codex is Tier B (standing-context injection): the canonical imperative at
+  `mimir-squared/clients/shared/infrastructure-imperative.md` is installed to
+  `~/.codex/AGENTS.md`. Tier B cannot observe tool calls or enforce a stop gate;
+  installation and fresh-session injection must therefore be asserted.
+- Recall Ogham with `hybrid_search` when starting work on a system that may have
+  prior context. Before ending, store decisions with rationale, gotchas, and
+  cross-session operational context with source, controlled tags, and a
+  deliberate TTL. Never store secrets or code-structure facts.
+- Canonical memory policy: `standards/Memory_Standard.md` in
+  blurred-concepts-engineering — it governs on any conflict.
