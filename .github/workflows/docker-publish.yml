@@ -27,6 +27,16 @@ on:
         required: false
         type: string
         default: "latest"
+      build_args:
+        description: >-
+          Additional build-time variables, newline-delimited KEY=VALUE pairs,
+          appended after the GIT_SHA arg this workflow always injects. Only
+          takes effect for a variable the Dockerfile actually declares with
+          ARG -- an unreferenced --build-arg is a harmless no-op, never a
+          build failure.
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build-and-push:
@@ -58,6 +68,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Image Traceability Standard (Git & Release Standard, "Shared DevOps"):
+      # every image this workflow publishes carries the source commit as both
+      # an OCI label (docker inspect, no cooperation from the Dockerfile
+      # needed) and a GIT_SHA build-arg (readable by the app at runtime, IF
+      # the Dockerfile declares `ARG GIT_SHA` -- opt-in per repo). Exists
+      # because a running container was found matching no build anyone could
+      # account for, with no way to identify which commit produced it.
+      - name: Compute build timestamp
+        id: ts
+        run: echo "now=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -66,5 +87,12 @@ jobs:
           platforms: ${{ inputs.platforms }}
           push: true
           tags: ${{ steps.image.outputs.name }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.created=${{ steps.ts.outputs.now }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            ${{ inputs.build_args }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -90,12 +90,25 @@ GitHub Actions has not run since 2026-05-31 (billing). **GHCR pushes from a
 workstation still work** — the block stops Actions, not package-registry writes.
 
 ```bash
-docker build -t ghcr.io/garthpuckerin/finance-freedom:latest              -t ghcr.io/garthpuckerin/finance-freedom:$(git rev-parse --short HEAD) .
-docker push ghcr.io/garthpuckerin/finance-freedom:$(git rev-parse --short HEAD)
+GIT_SHA="$(git rev-parse HEAD)"
+docker build \
+  --build-arg GIT_SHA="$GIT_SHA" \
+  -t ghcr.io/garthpuckerin/finance-freedom:latest \
+  -t "ghcr.io/garthpuckerin/finance-freedom:$(git rev-parse --short HEAD)" .
+docker push "ghcr.io/garthpuckerin/finance-freedom:$(git rev-parse --short HEAD)"
 docker push ghcr.io/garthpuckerin/finance-freedom:latest
-ssh nas 'cd /volume1/docker/projects/finance-freedom-compose   && /usr/local/bin/docker compose pull app   && /usr/local/bin/docker compose up -d app'
-curl -s http://192.168.7.247:3200/api/health    # expect the new "version"
+ssh nas 'cd /volume1/docker/projects/finance-freedom-compose \
+  && /usr/local/bin/docker compose pull app \
+  && /usr/local/bin/docker compose up -d app'
+curl -s http://192.168.7.247:3200/api/health    # expect matching "version" AND "gitSha"
 ```
+
+`--build-arg GIT_SHA` is required for a manual build. The CI path (reusable
+`docker-publish.yml`) injects it automatically; a manual build skipping this
+flag produces an image that reports `"gitSha":"unknown"` at `/api/health` —
+identifiable, but not traceable back to a commit. See Image Traceability in
+`Git_Release_Standard.md` (blurred-concepts-engineering). This exists because a
+NAS container was once found running an image nobody could account for.
 
 Take a rollback point first: `docker inspect finance-freedom-app --format '{{.Image}}'`.
 The entrypoint runs `prisma migrate deploy` on boot.
