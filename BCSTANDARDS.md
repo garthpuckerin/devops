@@ -10,7 +10,7 @@
 - This file was seeded fleet-wide on 2026-07-17; tailor repo-specific sections (product class, CI, context) as the repo is worked on.
 
 ## Code Comprehension (Comprehension Ladder Standard)
-
+<!-- bcstd:managed comprehension v1 -->
 - Graph repo_id: `github.com/garthpuckerin/devops`
 - Ladder-first: query the code-graph MCP ladder (`map` / `find` / `explain` /
   `neighbors` / `read`) with the repo_id above BEFORE raw file reads or grep
@@ -18,9 +18,18 @@
   editing, ungraphed repos, non-code content, and exact-line verification.
   Canonical text: `standards/Comprehension_Ladder_Standard.md` in
   blurred-concepts-engineering — it governs on any conflict.
+<!-- /bcstd:managed -->
 
-## Client Enforcement and Memory
-
+## Institutional Memory
+<!-- bcstd:managed memory v1 -->
+<!--
+  Renamed 2026-08-21 from "Client Enforcement and Memory" -- the previous
+  heading did not match the canonical registry
+  (templates/bcstandards/managed-sections.yaml in blurred-concepts-engineering),
+  so LEXI's drift detector classified this repo as MISSING the memory section
+  entirely despite the content below existing. Content is unchanged; only the
+  heading and these markers are new.
+-->
 - The comprehension and memory habits are active client bindings, not passive
   repository guidance. Each client must use the highest enforcement tier it
   supports under the Comprehension Ladder Standard.
@@ -34,3 +43,4 @@
   deliberate TTL. Never store secrets or code-structure facts.
 - Canonical memory policy: `standards/Memory_Standard.md` in
   blurred-concepts-engineering — it governs on any conflict.
+<!-- /bcstd:managed -->
