@@ -8,7 +8,7 @@
 - Standards library: `blurred-concepts-engineering/standards/`.
 - Precedence (Constitution §1): direct owner instruction → this `BCSTANDARDS.md` → Constitution → topic standards → supporting docs.
 - This file was seeded fleet-wide on 2026-07-17; tailor repo-specific sections (product class, CI, context) as the repo is worked on.
-
+- **Product class (Product Class Standard):** `P` — seeded 2026-09-05 by heuristic (no multi-tenant, regulated or billing language in README); confirm or raise, never lower.
 ## Code Comprehension (Comprehension Ladder Standard)
 <!-- bcstd:managed comprehension v1 -->
 - Graph repo_id: `github.com/garthpuckerin/devops`
