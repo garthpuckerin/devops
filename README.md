@@ -12,6 +12,37 @@ adapters and is a backlog/design input, not an implemented universal verifier.
 
 ## Reusable Workflows
 
+### `node-verification.yml`
+
+Runs the shared fail-closed verification rail for pnpm/Node.js repositories:
+frozen dependency installation, lint, unit coverage, an optional repository-owned
+contract suite, package audit, production build, and a clean-checkout assertion.
+The toolchain versions and package-script names are typed workflow inputs; versions
+must be exact semver values and script names are validated before execution.
+
+Callers must pin this workflow by its full commit SHA:
+
+```yaml
+jobs:
+  static-unit-security:
+    uses: garthpuckerin/devops/.github/workflows/node-verification.yml@<40-character-commit-sha>
+    with:
+      node_version: "24.16.0"
+      pnpm_version: "9.14.2"
+      contract_script: test:deployment
+```
+
+The declared inputs are `node_version`, `pnpm_version`, `lint_script`,
+`unit_script`, `contract_script`, `build_script`, `audit_level`, and
+`require_clean_build`. The DevOps CI compiles this interface, runs its complete
+disagreement matrix, and validates every workflow with an immutable actionlint
+image. Verify the same contract locally with:
+
+```bash
+node --test scripts/verify-node-verification-workflow.test.cjs
+node scripts/verify-node-verification-workflow.cjs
+```
+
 ### `docker-publish.yml`
 
 Builds and pushes a Docker image to `ghcr.io` on every push to `main`. Uses GitHub Actions cache for fast incremental builds.

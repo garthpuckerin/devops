@@ -1,0 +1,133 @@
+name: Node verification
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        description: Exact Node.js version used by the caller
+        required: false
+        type: string
+        default: "24.16.0"
+      pnpm_version:
+        description: Exact pnpm version used by the caller
+        required: false
+        type: string
+        default: "9.14.2"
+      lint_script:
+        description: Required package script for static analysis
+        required: false
+        type: string
+        default: lint
+      unit_script:
+        description: Required package script for unit coverage
+        required: false
+        type: string
+        default: test:coverage
+      contract_script:
+        description: Optional repository-owned contract-test package script
+        required: false
+        type: string
+        default: ""
+      build_script:
+        description: Required package script for the production build
+        required: false
+        type: string
+        default: build
+      audit_level:
+        description: Minimum pnpm audit severity that fails verification
+        required: false
+        type: string
+        default: high
+      require_clean_build:
+        description: Fail when verification changes tracked files or creates untracked files
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  static-unit-security:
+    name: Static, unit, build, and security gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate the reusable-workflow interface
+        shell: bash
+        env:
+          NODE_VERSION: ${{ inputs.node_version }}
+          PNPM_VERSION: ${{ inputs.pnpm_version }}
+          LINT_SCRIPT: ${{ inputs.lint_script }}
+          UNIT_SCRIPT: ${{ inputs.unit_script }}
+          CONTRACT_SCRIPT: ${{ inputs.contract_script }}
+          BUILD_SCRIPT: ${{ inputs.build_script }}
+          AUDIT_LEVEL: ${{ inputs.audit_level }}
+        run: |
+          set -euo pipefail
+          [[ "$NODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$PNPM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$LINT_SCRIPT" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]]
+          [[ "$UNIT_SCRIPT" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]]
+          [[ -z "$CONTRACT_SCRIPT" || "$CONTRACT_SCRIPT" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]]
+          [[ "$BUILD_SCRIPT" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]]
+          [[ "$AUDIT_LEVEL" =~ ^(low|moderate|high|critical)$ ]]
+
+      - name: Checkout caller repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ inputs.node_version }}
+          package-manager-cache: false
+
+      - name: Install the frozen toolchain
+        shell: bash
+        env:
+          PNPM_VERSION: ${{ inputs.pnpm_version }}
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
+          pnpm install --frozen-lockfile
+
+      - name: Lint
+        shell: bash
+        env:
+          PACKAGE_SCRIPT: ${{ inputs.lint_script }}
+        run: pnpm run "$PACKAGE_SCRIPT"
+
+      - name: Unit coverage
+        shell: bash
+        env:
+          PACKAGE_SCRIPT: ${{ inputs.unit_script }}
+        run: pnpm run "$PACKAGE_SCRIPT"
+
+      - name: Repository contract tests
+        if: inputs.contract_script != ''
+        shell: bash
+        env:
+          PACKAGE_SCRIPT: ${{ inputs.contract_script }}
+        run: pnpm run "$PACKAGE_SCRIPT"
+
+      - name: Package vulnerability gate
+        shell: bash
+        env:
+          AUDIT_LEVEL: ${{ inputs.audit_level }}
+        run: pnpm audit --audit-level="$AUDIT_LEVEL"
+
+      - name: Production build
+        shell: bash
+        env:
+          PACKAGE_SCRIPT: ${{ inputs.build_script }}
+        run: pnpm run "$PACKAGE_SCRIPT"
+
+      - name: Production build must leave the checkout clean
+        if: inputs.require_clean_build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
