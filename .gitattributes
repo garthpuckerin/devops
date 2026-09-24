@@ -1,0 +1,3 @@
+# Shell scripts must stay LF: bash fails on CRLF (set -euo pipefail),
+# and core.autocrlf=true checkouts convert them otherwise.
+*.sh text eol=lf
