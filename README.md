@@ -92,6 +92,11 @@ Profiles:
 
 ## Scripts
 
+### `scripts/deploy-local-build.sh`
+
+Build an image locally, push to GHCR, roll the NAS service onto it — no
+Actions minutes. See [Alternate path: build locally](#alternate-path-build-locally-no-actions-minutes).
+
 ### `scripts/bootstrap-docker-workflow.sh`
 
 Wires the docker-publish caller workflow into one or more repos via the GitHub API — no cloning required.
@@ -168,6 +173,52 @@ uniform policy, not a per-project invention:
 - **Image contract.** Auto-update requires the service to publish
   `ghcr.io/garthpuckerin/<repo>:latest` via the shared `docker-publish.yml`
   (§23.1). No `:latest` → no auto-update.
+
+### Alternate path: build locally, no Actions minutes
+
+[`scripts/deploy-local-build.sh`](scripts/deploy-local-build.sh) builds the
+image on your workstation, pushes it to GHCR, pushes the commits, and rolls the
+NAS compose service onto it, then verifies the running container's
+`org.opencontainers.image.revision` label equals `HEAD` (plus an optional
+health URL). Use it when Actions is billing-blocked, or whenever a build isn't
+worth paid minutes. Generalised from ShadowStream's `scripts/deploy-nas.sh`,
+which has shipped every ShadowStream release this way since 2026-09-05.
+
+Every step is fatal and ordered so production can never run a revision that is
+not on the remote: image pushed before the NAS is touched, commits pushed
+before the rollout. It refuses to run with uncommitted non-doc changes, and
+refuses when the repo has workflows and `HEAD` lacks `[skip ci]` (the git push
+would otherwise start the paid runs this path exists to avoid; `--allow-ci`
+overrides deliberately).
+
+It stays compatible with Watchtower: the image is pushed as the registry's
+`:latest`, which is what the nightly sweep converges on. Never sideload with
+`docker save | docker load` — Watchtower compares image IDs, not age, and
+reverts a sideloaded image at the next sweep.
+
+**Onboard a repo** — commit a `.deploy.env` at its root (no secrets; GHCR
+auth comes from Docker Desktop's credential store):
+
+```bash
+NAS_DIR=/volume1/docker/<project>      # compose project dir on the NAS
+SERVICE=<compose-service>              # CONTAINER defaults to this
+HEALTH_URL=http://192.168.7.247:<port>/api/health   # optional
+HEALTH_MATCH='"status":"ok"'           # optional
+GATE_CMD="pnpm run deploy:check"       # run by --gate
+# IMAGE defaults to ghcr.io/<owner>/<repo>:latest from the origin remote;
+# PLATFORM defaults to linux/amd64 (the NAS is x86_64).
+```
+
+**Run it** from the repo root:
+
+```bash
+bash D:/BlurredConcepts/devops/scripts/deploy-local-build.sh --dry-run   # print, touch nothing
+bash D:/BlurredConcepts/devops/scripts/deploy-local-build.sh --gate      # gate, then deploy
+```
+
+Flags: `--gate`, `--dry-run`, `--allow-ci`, `--prune` (prune dangling NAS
+images afterwards). The NAS SSH watchdog is re-opened through the container
+monitor (`MONITOR`, default `:8099`) before the rollout.
 
 ### Onboard a project to the dev/beta cadence
 
